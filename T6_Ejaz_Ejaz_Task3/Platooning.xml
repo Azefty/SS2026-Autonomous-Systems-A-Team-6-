@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>clock x, y, z;
+bool driver_request = true;
+bool v2v_received = true;
+bool all_ids_verified = true;
+bool all_confirmed = true;</declaration>
+	<template>
+		<name x="5" y="5">Platooning</name>
+		<declaration>// Place local declarations here.
+</declaration>
+		<location id="id0" x="-595" y="17">
+			<name x="-605" y="-17">Idle</name>
+		</location>
+		<location id="id1" x="-374" y="17">
+			<name x="-450" y="59">Sending_Join_Request</name>
+			<label kind="invariant" x="-384" y="34">z&lt;=30</label>
+		</location>
+		<location id="id2" x="-127" y="17">
+			<name x="-137" y="-17">Authenticating</name>
+			<label kind="invariant" x="-137" y="34">x&lt;=2</label>
+		</location>
+		<location id="id3" x="170" y="17">
+			<name x="144" y="-42">Assigning_Positions</name>
+			<label kind="invariant" x="160" y="34">y&lt;=5</label>
+		</location>
+		<location id="id4" x="484" y="17">
+			<name x="474" y="-17">CACC_Active</name>
+			<label kind="invariant" x="474" y="34">z&lt;=30</label>
+		</location>
+		<init ref="id0"/>
+		<transition id="id5">
+			<source ref="id3"/>
+			<target ref="id4"/>
+			<label kind="guard" x="297" y="42">all_confirmed</label>
+		</transition>
+		<transition id="id6">
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="guard" x="-42" y="-51">all_ids_verified</label>
+			<label kind="assignment" x="-109" y="17">y:=0</label>
+		</transition>
+		<transition id="id7">
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-306" y="-17">v2v_received</label>
+			<label kind="assignment" x="-356" y="17">x:=0</label>
+		</transition>
+		<transition id="id8">
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="guard" x="-544" y="-17">driver_request</label>
+			<label kind="assignment" x="-517" y="17">z:=0</label>
+		</transition>
+	</template>
+	<system>system Platooning;</system>
+	<queries>
+		<query>
+			<formula/>
+			<comment/>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Platooning.CACC_Active</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-11 22:05:38 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (Platooning.Authenticating and x &gt; 2)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-11 22:06:03 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (Platooning.Assigning_Positions and y &gt; 5)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-11 22:06:06 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (Platooning.CACC_Active and z &gt; 30)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-11 22:06:09 +0200">
+			</result>
+		</query>
+	</queries>
+</nta>
