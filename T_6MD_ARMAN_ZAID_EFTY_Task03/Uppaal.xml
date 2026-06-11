@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>// Place global declarations here.
+clock x;
+clock y;
+
+chan brakeWarning;</declaration>
+	<template>
+		<name x="5" y="5">LeadTruck</name>
+		<location id="id0" x="263" y="-17">
+			<name x="253" y="-51">NormalDriving</name>
+		</location>
+		<location id="id1" x="714" y="-8">
+			<name x="663" y="-59">EmergencyBraking</name>
+		</location>
+		<location id="id2" x="1232" y="0">
+			<name x="1222" y="-34">SafeStop</name>
+		</location>
+		<location id="id3" x="994" y="-8">
+			<name x="984" y="-42">WarningSent</name>
+		</location>
+		<location id="id4" x="493" y="-8">
+			<name x="484" y="-59">ObstacleDetected</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id5">
+			<source ref="id3"/>
+			<target ref="id2"/>
+		</transition>
+		<transition id="id6">
+			<source ref="id1"/>
+			<target ref="id3"/>
+			<label kind="guard" x="732" y="-42">x &lt;= 10</label>
+			<label kind="synchronisation" x="732" y="-25">brakeWarning!</label>
+		</transition>
+		<transition id="id7">
+			<source ref="id4"/>
+			<target ref="id1"/>
+			<label kind="guard" x="511" y="-42">x &lt;= 50</label>
+		</transition>
+		<transition id="id8">
+			<source ref="id0"/>
+			<target ref="id4"/>
+		</transition>
+	</template>
+	<template>
+		<name>TrailingTruck</name>
+		<location id="id9" x="-357" y="-289">
+			<name x="-365" y="-331">Following</name>
+		</location>
+		<location id="id10" x="-127" y="-272">
+			<name x="-135" y="-314">WarningReceived</name>
+		</location>
+		<location id="id11" x="59" y="-263">
+			<name x="49" y="-297">EmergencyBraking</name>
+		</location>
+		<location id="id12" x="340" y="-246">
+			<name x="330" y="-280">SafeStop</name>
+		</location>
+		<init ref="id9"/>
+		<transition id="id13">
+			<source ref="id10"/>
+			<target ref="id11"/>
+			<label kind="guard" x="-109" y="-301">y &lt;= 100</label>
+		</transition>
+		<transition id="id14">
+			<source ref="id9"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-382" y="-272">brakeWarning?</label>
+		</transition>
+		<transition id="id15">
+			<source ref="id11"/>
+			<target ref="id12"/>
+		</transition>
+	</template>
+	<system>LT = LeadTruck();
+TT = TrailingTruck();
+
+system LT, TT;</system>
+	<queries>
+		<query>
+			<formula>
+E&lt;&gt; LT.SafeStop</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-11 23:36:59 +0200">
+			</result>
+		</query>
+	</queries>
+</nta>
