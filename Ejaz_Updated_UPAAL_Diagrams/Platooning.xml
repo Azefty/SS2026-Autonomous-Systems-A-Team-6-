@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>// Clocks
+clock x, y, z, s;
+
+// Formation timing (your requirements)
+const int AUTH_TIME = 2;      // REQ-FP07
+const int CONFIRM_TIME = 5;   // REQ-FP06
+const int SETUP_TIME = 30;    // REQ-FP05
+
+// Truck parameters
+const int N = 3;              // number of trucks
+typedef int[0, N-1] tid_t;   // truck ID type
+
+// Safety
+int[0,100] gap = 50;
+const int MIN_GAP = 10;
+int[0,10] constraints = 0;
+
+// State flags
+bool platoon_formed = false;
+bool v2v_ok = true;
+
+// Channels
+broadcast chan join_req;
+broadcast chan join_confirm;
+chan split_req;
+chan slowDown;
+chan safe;
+chan bcast_emergency;</declaration>
+	<template>
+		<name x="5" y="5">Truck</name>
+		<parameter>tid_t id</parameter>
+		<declaration>// Place local declarations here.
+</declaration>
+		<location id="id0" x="-510" y="-59">
+			<name x="-520" y="-93">Solo</name>
+		</location>
+		<location id="id1" x="433" y="-102">
+			<name x="423" y="-136">Following</name>
+		</location>
+		<location id="id2" x="-263" y="-161">
+			<name x="-281" y="-195">Joining</name>
+			<label kind="invariant" x="-281" y="-144">z&lt;=SETUP_TIME</label>
+		</location>
+		<location id="id3" x="51" y="229">
+			<name x="41" y="195">CommIdle</name>
+		</location>
+		<location id="id4" x="119" y="-255">
+			<name x="109" y="-289">Leading</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id5">
+			<source ref="id3"/>
+			<target ref="id3"/>
+			<label kind="guard" x="-127" y="246">v2v_ok</label>
+			<label kind="synchronisation" x="-144" y="272">join_req?</label>
+			<nail x="-68" y="280"/>
+			<nail x="42" y="306"/>
+		</transition>
+		<transition id="id6">
+			<source ref="id4"/>
+			<target ref="id4"/>
+			<label kind="guard" x="221" y="-340">platoon_formed</label>
+			<label kind="synchronisation" x="221" y="-272">join_req!</label>
+			<nail x="153" y="-348"/>
+			<nail x="280" y="-297"/>
+		</transition>
+		<transition id="id7">
+			<source ref="id2"/>
+			<target ref="id1"/>
+			<label kind="guard" x="450" y="-331">id!=0 &amp;&amp; platoon_formed</label>
+			<nail x="-263" y="-382"/>
+			<nail x="442" y="-382"/>
+		</transition>
+		<transition id="id8">
+			<source ref="id1"/>
+			<target ref="id1"/>
+			<label kind="guard" x="603" y="-144">platoon_formed</label>
+			<nail x="595" y="-136"/>
+			<nail x="603" y="-34"/>
+		</transition>
+		<transition id="id9">
+			<source ref="id4"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="-8" y="8">join_req!</label>
+		</transition>
+		<transition id="id10">
+			<source ref="id3"/>
+			<target ref="id1"/>
+			<label kind="guard" x="442" y="170">v2v_ok</label>
+			<nail x="433" y="238"/>
+		</transition>
+		<transition id="id11">
+			<source ref="id2"/>
+			<target ref="id4"/>
+			<label kind="guard" x="-212" y="-297">id==0 &amp;&amp; z&lt;=SETUP_TIME</label>
+			<label kind="synchronisation" x="-187" y="-272">join_confirm!</label>
+			<label kind="assignment" x="-212" y="-246">platoon_formed:=true</label>
+		</transition>
+		<transition id="id12">
+			<source ref="id2"/>
+			<target ref="id1"/>
+			<label kind="guard" x="169" y="-152">id!=0</label>
+			<label kind="synchronisation" x="195" y="-93">join_confirm?</label>
+		</transition>
+		<transition id="id13" controllable="false">
+			<source ref="id3"/>
+			<target ref="id0"/>
+			<label kind="guard" x="-212" y="59">!v2v_ok</label>
+			<label kind="assignment" x="-374" y="144">platoon_formed:=false</label>
+			<nail x="-25" y="204"/>
+		</transition>
+		<transition id="id14">
+			<source ref="id1"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="170" y="34">join_req?</label>
+		</transition>
+		<transition id="id15">
+			<source ref="id0"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-408" y="-127">v2v_ok</label>
+			<label kind="assignment" x="-391" y="-76">z:=0</label>
+		</transition>
+	</template>
+	<system>T0 = Truck(0);
+T1 = Truck(1);
+T2 = Truck(2);
+
+system T0, T1, T2;
+</system>
+	<queries>
+		<query>
+			<formula>E&lt;&gt; T0.Leading</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-25 20:28:12 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; T1.Following</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-25 20:28:12 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; T2.Following</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-25 20:28:12 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (T0.Joining and z &gt; SETUP_TIME)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-25 20:28:12 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] (T0.Leading imply platoon_formed)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-25 20:28:12 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] (T1.Following imply platoon_formed)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-25 20:28:12 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (platoon_formed and !v2v_ok)</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-25 20:28:12 +0200">
+			</result>
+		</query>
+	</queries>
+</nta>
