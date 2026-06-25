@@ -1,0 +1,815 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>// Combined UPPAAL model for three truck platooning scenarios
+// Scenario A: Stopped vehicle/debris emergency braking
+// Scenario B: Vehicle cut-in and platoon reconfiguration
+// Scenario C: Platoon joining / CACC activation
+
+
+// --- Scenario C: Platoon joining ---
+clock x, y, z;
+bool driver_request = true;
+bool v2v_received = true;
+bool all_ids_verified = true;
+bool all_confirmed = true;
+
+// --- Scenario B: Vehicle cut-in ---
+// Place global declarations here.
+// Time unit assumption: 1 UPPAAL time unit = 1 ms
+
+const int DETECTION_TIME = 200;
+const int NOTIFICATION_TIME = 100;
+const int DISTANCE_ADJUSTMENT_TIME = 500;
+const int REFORMATION_TIME = 10000;
+const int ACK_TIMEOUT = 100;
+
+const int REQUIRED_ACKS = 2; 
+// 1 ACK from platoon leader + 1 ACK from follower truck group
+
+// Broadcast channels
+broadcast chan cutIn;
+broadcast chan cutInAlert;
+broadcast chan enterReconfiguration;
+broadcast chan increaseDistance;
+broadcast chan reformPlatoon;
+broadcast chan safeFallback;
+
+// Normal synchronization channels
+chan alertPrepared;
+chan ack;
+chan alertConfirmed;
+chan safeDistanceReachedSig;
+chan intruderLeft;
+chan communicationTimeout;
+
+// Global state variables
+bool intruder_present = false;
+bool platoon_normal = true;
+bool safe_distance = false;
+bool communication_ok = true;
+bool fallback_mode = false;
+bool collision = false;
+
+int[0, REQUIRED_ACKS] ack_count = 0;
+
+// --- Scenario A: Stopped vehicle/debris ---
+// Place global declarations here.
+clock s1_x;
+clock s1_y;
+clock t;
+
+broadcast chan s1_brakeWarning;
+broadcast chan s1_fallback;</declaration>
+	<template>
+		<name x="5" y="5">LeadTruck</name>
+		<location id="id0" x="59" y="-25">
+			<name x="49" y="-59">NormalDriving</name>
+		</location>
+		<location id="id1" x="731" y="-8">
+			<name x="680" y="-59">EmergencyBraking</name>
+		</location>
+		<location id="id2" x="1232" y="-8">
+			<name x="1222" y="-42">SafeStop</name>
+		</location>
+		<location id="id3" x="994" y="-8">
+			<name x="984" y="-42">WarningSent</name>
+		</location>
+		<location id="id4" x="306" y="-17">
+			<name x="297" y="-68">ObstacleDetected</name>
+		</location>
+		<location id="id5" x="569" y="-8">
+			<name x="510" y="-59">ObstacleClassified</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id6">
+			<source ref="id5"/>
+			<target ref="id1"/>
+			<label kind="assignment" x="595" y="0">s1_x = 0</label>
+		</transition>
+		<transition id="id7">
+			<source ref="id3"/>
+			<target ref="id2"/>
+		</transition>
+		<transition id="id8">
+			<source ref="id1"/>
+			<target ref="id3"/>
+			<label kind="guard" x="850" y="-68">s1_x &lt;= 10</label>
+			<label kind="synchronisation" x="807" y="-34">s1_brakeWarning!</label>
+		</transition>
+		<transition id="id9">
+			<source ref="id4"/>
+			<target ref="id5"/>
+			<label kind="guard" x="408" y="-42">s1_x &lt;= 50</label>
+			<nail x="416" y="-8"/>
+		</transition>
+		<transition id="id10">
+			<source ref="id0"/>
+			<target ref="id4"/>
+			<label kind="assignment" x="102" y="0">s1_x = 0, t = 0</label>
+		</transition>
+	</template>
+	<template>
+		<name>TrailingTruck</name>
+		<location id="id11" x="-357" y="-289">
+			<name x="-365" y="-331">Following</name>
+		</location>
+		<location id="id12" x="-127" y="-272">
+			<name x="-135" y="-314">WarningReceived</name>
+		</location>
+		<location id="id13" x="59" y="-263">
+			<name x="49" y="-297">EmergencyBraking</name>
+		</location>
+		<location id="id14" x="340" y="-246">
+			<name x="330" y="-280">SafeStop</name>
+		</location>
+		<location id="id15" x="-195" y="-85">
+			<name x="-254" y="-136">CommunicationFailure</name>
+		</location>
+		<location id="id16" x="76" y="-85">
+			<name x="66" y="-119">SensorBasedBraking</name>
+		</location>
+		<init ref="id11"/>
+		<transition id="id17">
+			<source ref="id16"/>
+			<target ref="id14"/>
+		</transition>
+		<transition id="id18">
+			<source ref="id15"/>
+			<target ref="id16"/>
+		</transition>
+		<transition id="id19">
+			<source ref="id11"/>
+			<target ref="id15"/>
+			<label kind="synchronisation" x="-339" y="-204">s1_fallback?</label>
+		</transition>
+		<transition id="id20">
+			<source ref="id12"/>
+			<target ref="id13"/>
+			<label kind="guard" x="-110" y="-297">s1_y &lt;= 100</label>
+		</transition>
+		<transition id="id21">
+			<source ref="id11"/>
+			<target ref="id12"/>
+			<label kind="synchronisation" x="-331" y="-306">s1_brakeWarning?</label>
+			<label kind="assignment" x="-306" y="-280">s1_y = 0</label>
+		</transition>
+		<transition id="id22">
+			<source ref="id13"/>
+			<target ref="id14"/>
+		</transition>
+	</template>
+	<template>
+		<name>S1CommunicationMonitor</name>
+		<location id="id23" x="-459" y="-204">
+			<name x="-469" y="-238">Monitoring</name>
+		</location>
+		<location id="id24" x="-127" y="-204">
+			<name x="-137" y="-238">WarningDelivered</name>
+		</location>
+		<location id="id25" x="-365" y="8">
+			<name x="-375" y="-26">Timeout</name>
+		</location>
+		<location id="id26" x="-119" y="8">
+			<name x="-129" y="-26">FallbackTriggered</name>
+		</location>
+		<init ref="id23"/>
+		<transition id="id27">
+			<source ref="id25"/>
+			<target ref="id26"/>
+			<label kind="synchronisation" x="-347" y="-9">s1_fallback!</label>
+		</transition>
+		<transition id="id28">
+			<source ref="id23"/>
+			<target ref="id25"/>
+			<label kind="guard" x="-441" y="-132">t &gt;= 10</label>
+		</transition>
+		<transition id="id29">
+			<source ref="id23"/>
+			<target ref="id24"/>
+			<label kind="synchronisation" x="-340" y="-238">s1_brakeWarning?</label>
+		</transition>
+	</template>
+	<template>
+		<name x="5" y="5">Environment</name>
+		<declaration>// Place local declarations here.
+</declaration>
+		<location id="id30" x="-586" y="-314">
+			<name x="-596" y="-348">N0Intuder</name>
+		</location>
+		<location id="id31" x="-314" y="-297">
+			<name x="-324" y="-331">CutIn</name>
+		</location>
+		<location id="id32" x="-59" y="-297">
+			<name x="-69" y="-331">IntruderInGap</name>
+		</location>
+		<location id="id33" x="178" y="-280">
+			<name x="168" y="-314">IntruderLeft</name>
+		</location>
+		<init ref="id30"/>
+		<transition id="id34">
+			<source ref="id32"/>
+			<target ref="id33"/>
+			<label kind="synchronisation" x="-34" y="-280">intruderLeft!</label>
+			<label kind="assignment" x="-34" y="-263">intruder_present = false</label>
+		</transition>
+		<transition id="id35">
+			<source ref="id31"/>
+			<target ref="id32"/>
+		</transition>
+		<transition id="id36">
+			<source ref="id30"/>
+			<target ref="id31"/>
+			<label kind="synchronisation" x="-510" y="-306">cutIn!</label>
+			<label kind="assignment" x="-561" y="-289">intruder_present = true</label>
+		</transition>
+	</template>
+	<template>
+		<name>DetectingTruck</name>
+		<declaration>clock x;</declaration>
+		<location id="id37" x="-2303" y="-1147">
+			<name x="-2313" y="-1181">Monitoring</name>
+		</location>
+		<location id="id38" x="-2116" y="-1139">
+			<name x="-2126" y="-1173">Detecting</name>
+			<label kind="invariant" x="-2126" y="-1122">x &lt;= DETECTION_TIME</label>
+		</location>
+		<location id="id39" x="-1751" y="-1147">
+			<name x="-1793" y="-1190">AlertPrepared</name>
+		</location>
+		<location id="id40" x="-1487" y="-1130">
+			<name x="-1497" y="-1164">WaitingForLeader</name>
+		</location>
+		<location id="id41" x="-1258" y="-1113">
+			<name x="-1300" y="-1147">FallbackMode</name>
+		</location>
+		<init ref="id37"/>
+		<transition id="id42">
+			<source ref="id40"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-1436" y="-1130">safeFallback?</label>
+			<label kind="assignment" x="-1462" y="-1113">fallback_mode = true</label>
+		</transition>
+		<transition id="id43">
+			<source ref="id39"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-1572" y="-1241">safeFallback?</label>
+			<label kind="assignment" x="-1589" y="-1215">fallback_mode = true</label>
+			<nail x="-1156" y="-1300"/>
+		</transition>
+		<transition id="id44">
+			<source ref="id38"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-2082" y="-1309">safeFallback?</label>
+			<label kind="assignment" x="-2125" y="-1283">fallback_mode = true</label>
+			<nail x="-1802" y="-1402"/>
+			<nail x="-1258" y="-1334"/>
+		</transition>
+		<transition id="id45">
+			<source ref="id37"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-2150" y="-1028">safeFallback?</label>
+			<label kind="assignment" x="-2142" y="-1011">fallback_mode = true</label>
+			<nail x="-2269" y="-1037"/>
+			<nail x="-1368" y="-858"/>
+		</transition>
+		<transition id="id46">
+			<source ref="id39"/>
+			<target ref="id40"/>
+			<label kind="synchronisation" x="-1666" y="-1147">safeFallback?</label>
+		</transition>
+		<transition id="id47">
+			<source ref="id38"/>
+			<target ref="id39"/>
+			<label kind="guard" x="-2040" y="-1164">x &lt;= DETECTION_TIME</label>
+			<label kind="synchronisation" x="-2047" y="-1143">alertPrepared!</label>
+		</transition>
+		<transition id="id48">
+			<source ref="id37"/>
+			<target ref="id38"/>
+			<label kind="synchronisation" x="-2285" y="-1160">cutIn?</label>
+			<label kind="assignment" x="-2285" y="-1143">x = 0</label>
+		</transition>
+	</template>
+	<template>
+		<name>CommunicationModule</name>
+		<declaration>clock y;</declaration>
+		<location id="id49" x="-399" y="-272">
+			<name x="-409" y="-306">Idle</name>
+		</location>
+		<location id="id50" x="-195" y="-255">
+			<name x="-205" y="-289">SendingAlert</name>
+			<label kind="invariant" x="-246" y="-195">y &lt;= NOTIFICATION_TIME</label>
+		</location>
+		<location id="id51" x="76" y="-263">
+			<name x="66" y="-297">WaitingForAck</name>
+			<label kind="invariant" x="8" y="-246">y &lt;= ACK_TIMEOUT</label>
+		</location>
+		<location id="id52" x="603" y="-170">
+			<name x="593" y="-204">Timeout</name>
+		</location>
+		<location id="id53" x="535" y="-289">
+			<name x="525" y="-323">AlertConfirmed</name>
+		</location>
+		<init ref="id49"/>
+		<transition id="id54">
+			<source ref="id51"/>
+			<target ref="id52"/>
+			<label kind="guard" x="178" y="-195">y &gt;= ACK_TIMEOUT &amp;&amp; ack_count &lt; REQUIRED_ACKS</label>
+			<label kind="synchronisation" x="289" y="-170">communicationTimeout!</label>
+			<label kind="assignment" x="229" y="-136">communication_ok = false</label>
+			<nail x="425" y="-119"/>
+		</transition>
+		<transition id="id55">
+			<source ref="id51"/>
+			<target ref="id53"/>
+			<label kind="guard" x="229" y="-297">ack_count == REQUIRED_ACKS</label>
+			<label kind="synchronisation" x="263" y="-272">alertConfirmed!</label>
+		</transition>
+		<transition id="id56">
+			<source ref="id49"/>
+			<target ref="id50"/>
+			<label kind="synchronisation" x="-365" y="-280">alertPrepared?</label>
+			<label kind="assignment" x="-348" y="-221">y = 0, ack_count = 0, communication_ok = true</label>
+		</transition>
+		<transition id="id57">
+			<source ref="id51"/>
+			<target ref="id51"/>
+			<label kind="guard" x="94" y="-378">ack_count &lt; REQUIRED_ACKS</label>
+			<label kind="synchronisation" x="94" y="-361">ack?</label>
+			<label kind="assignment" x="94" y="-344">ack_count = ack_count + 1</label>
+			<nail x="221" y="-425"/>
+			<nail x="34" y="-425"/>
+		</transition>
+		<transition id="id58">
+			<source ref="id50"/>
+			<target ref="id51"/>
+			<label kind="guard" x="-178" y="-306">y &lt;= NOTIFICATION_TIME</label>
+			<label kind="synchronisation" x="-161" y="-272">cutInAlert!</label>
+			<label kind="assignment" x="-177" y="-259">y = 0</label>
+		</transition>
+	</template>
+	<template>
+		<name>PlatoonLeader</name>
+		<declaration>clock r;</declaration>
+		<location id="id59" x="-765" y="-620">
+			<name x="-775" y="-654">NormalMode</name>
+		</location>
+		<location id="id60" x="1598" y="-578">
+			<name x="1564" y="-561">Reforming</name>
+			<label kind="invariant" x="1513" y="-544">r &lt;= REFORMATION_TIME</label>
+		</location>
+		<location id="id61" x="-476" y="-612">
+			<name x="-486" y="-646">AlertReceived</name>
+		</location>
+		<location id="id62" x="-212" y="-603">
+			<name x="-222" y="-637">WaitingForConfirmation</name>
+		</location>
+		<location id="id63" x="93" y="-595">
+			<name x="83" y="-629">ReconfigurationMode</name>
+		</location>
+		<location id="id64" x="442" y="-578">
+			<name x="432" y="-612">CommandDistance</name>
+		</location>
+		<location id="id65" x="790" y="-578">
+			<name x="780" y="-612">WaitingForSafeDistance</name>
+		</location>
+		<location id="id66" x="1164" y="-561">
+			<name x="1154" y="-595">WaitingForIntruderToLeave</name>
+		</location>
+		<location id="id67" x="1079" y="-229">
+			<name x="1069" y="-263">FallbackMode</name>
+		</location>
+		<init ref="id59"/>
+		<transition id="id68">
+			<source ref="id60"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="1419" y="-255">safeFallback?</label>
+			<label kind="assignment" x="1266" y="-229">fallback_mode = true, platoon_normal = false</label>
+			<nail x="1581" y="-229"/>
+		</transition>
+		<transition id="id69">
+			<source ref="id66"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="1097" y="-412">safeFallback?</label>
+			<label kind="assignment" x="1097" y="-395">fallback_mode = true, platoon_normal = false</label>
+		</transition>
+		<transition id="id70">
+			<source ref="id65"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="731" y="-544">safeFallback?</label>
+			<label kind="assignment" x="612" y="-527">fallback_mode = true, platoon_normal = false</label>
+			<nail x="790" y="-433"/>
+		</transition>
+		<transition id="id71">
+			<source ref="id64"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="416" y="-518">safeFallback?</label>
+			<label kind="assignment" x="331" y="-493">fallback_mode = true, platoon_normal = false</label>
+			<nail x="459" y="-467"/>
+		</transition>
+		<transition id="id72">
+			<source ref="id63"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="306" y="-433">safeFallback?</label>
+			<label kind="assignment" x="161" y="-416">fallback_mode = true, platoon_normal = false</label>
+			<nail x="110" y="-493"/>
+		</transition>
+		<transition id="id73">
+			<source ref="id62"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="-272" y="-518">safeFallback?</label>
+			<label kind="assignment" x="-297" y="-501">fallback_mode = true, platoon_normal = false</label>
+			<nail x="-229" y="-399"/>
+		</transition>
+		<transition id="id74">
+			<source ref="id61"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="-535" y="-467">safeFallback?</label>
+			<label kind="assignment" x="-654" y="-450">fallback_mode = true, platoon_normal = false</label>
+			<nail x="-518" y="-340"/>
+		</transition>
+		<transition id="id75">
+			<source ref="id59"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="-772" y="-288">safeFallback?</label>
+			<label kind="assignment" x="-772" y="-271">fallback_mode = true, platoon_normal = false</label>
+			<nail x="-790" y="-314"/>
+		</transition>
+		<transition id="id76">
+			<source ref="id60"/>
+			<target ref="id59"/>
+			<label kind="guard" x="-738" y="-752">r &lt;= REFORMATION_TIME</label>
+			<label kind="synchronisation" x="-738" y="-735">reformPlatoon!</label>
+			<label kind="assignment" x="-738" y="-718">platoon_normal = true</label>
+			<nail x="1564" y="-688"/>
+			<nail x="-756" y="-748"/>
+		</transition>
+		<transition id="id77">
+			<source ref="id66"/>
+			<target ref="id60"/>
+			<label kind="synchronisation" x="1182" y="-586">intruderLeft?</label>
+			<label kind="assignment" x="1182" y="-569">r = 0</label>
+		</transition>
+		<transition id="id78">
+			<source ref="id65"/>
+			<target ref="id66"/>
+			<label kind="synchronisation" x="808" y="-586">safeDistanceReachedSig?</label>
+			<label kind="assignment" x="808" y="-569">safe_distance = true</label>
+		</transition>
+		<transition id="id79">
+			<source ref="id64"/>
+			<target ref="id65"/>
+			<label kind="synchronisation" x="460" y="-595">increaseDistance!</label>
+		</transition>
+		<transition id="id80">
+			<source ref="id63"/>
+			<target ref="id64"/>
+			<label kind="synchronisation" x="170" y="-612">enterReconfiguration!</label>
+		</transition>
+		<transition id="id81">
+			<source ref="id62"/>
+			<target ref="id63"/>
+			<label kind="synchronisation" x="-161" y="-620">alertConfirmed?</label>
+		</transition>
+		<transition id="id82">
+			<source ref="id61"/>
+			<target ref="id62"/>
+			<label kind="synchronisation" x="-399" y="-629">ack!</label>
+		</transition>
+		<transition id="id83">
+			<source ref="id59"/>
+			<target ref="id61"/>
+			<label kind="synchronisation" x="-747" y="-633">cutInAlert?</label>
+			<label kind="assignment" x="-747" y="-616">platoon_normal = false</label>
+		</transition>
+	</template>
+	<template>
+		<name>FollowerTruck</name>
+		<declaration>clock z;</declaration>
+		<location id="id84" x="-1283" y="-501">
+			<name x="-1293" y="-535">NormalFollowing</name>
+		</location>
+		<location id="id85" x="-977" y="-493">
+			<name x="-987" y="-527">AlertReceived</name>
+		</location>
+		<location id="id86" x="-714" y="-476">
+			<name x="-724" y="-510">WaitingForReconfiguration</name>
+		</location>
+		<location id="id87" x="-442" y="-476">
+			<name x="-452" y="-510">ReconfigurationMode</name>
+		</location>
+		<location id="id88" x="-144" y="-467">
+			<name x="-154" y="-501">IncreasingDistance</name>
+			<label kind="invariant" x="-195" y="-433">z &lt;= DISTANCE_ADJUSTMENT_TIME</label>
+		</location>
+		<location id="id89" x="331" y="-450">
+			<name x="321" y="-484">SafeFollowingMode</name>
+		</location>
+		<location id="id90" x="85" y="0">
+			<name x="75" y="-34">FallbackMode</name>
+		</location>
+		<init ref="id84"/>
+		<transition id="id91">
+			<source ref="id89"/>
+			<target ref="id90"/>
+			<label kind="synchronisation" x="264" y="-242">safeFallback?</label>
+			<label kind="assignment" x="264" y="-225">fallback_mode = true</label>
+			<nail x="246" y="0"/>
+		</transition>
+		<transition id="id92">
+			<source ref="id88"/>
+			<target ref="id90"/>
+			<label kind="synchronisation" x="-119" y="-255">safeFallback?</label>
+			<label kind="assignment" x="-127" y="-221">fallback_mode = true</label>
+			<nail x="-144" y="-340"/>
+		</transition>
+		<transition id="id93">
+			<source ref="id87"/>
+			<target ref="id90"/>
+			<label kind="synchronisation" x="-348" y="-280">safeFallback?</label>
+			<label kind="assignment" x="-365" y="-263">fallback_mode = true</label>
+			<nail x="-442" y="-374"/>
+		</transition>
+		<transition id="id94">
+			<source ref="id86"/>
+			<target ref="id90"/>
+			<label kind="synchronisation" x="-629" y="-255">safeFallback?</label>
+			<label kind="assignment" x="-637" y="-238">fallback_mode = true</label>
+			<nail x="-714" y="-297"/>
+		</transition>
+		<transition id="id95">
+			<source ref="id85"/>
+			<target ref="id90"/>
+			<label kind="synchronisation" x="-952" y="-195">safeFallback?</label>
+			<label kind="assignment" x="-952" y="-178">fallback_mode = true</label>
+			<nail x="-977" y="-195"/>
+		</transition>
+		<transition id="id96">
+			<source ref="id84"/>
+			<target ref="id90"/>
+			<label kind="synchronisation" x="-1257" y="-51">safeFallback?</label>
+			<label kind="assignment" x="-1257" y="-34">fallback_mode = true</label>
+			<nail x="-1275" y="-68"/>
+		</transition>
+		<transition id="id97">
+			<source ref="id89"/>
+			<target ref="id84"/>
+			<label kind="synchronisation" x="-1265" y="-607">reformPlatoon?</label>
+			<label kind="assignment" x="-1265" y="-590">safe_distance = false</label>
+			<nail x="314" y="-569"/>
+			<nail x="-1283" y="-612"/>
+		</transition>
+		<transition id="id98">
+			<source ref="id88"/>
+			<target ref="id89"/>
+			<label kind="guard" x="17" y="-493">z &lt;= DISTANCE_ADJUSTMENT_TIME</label>
+			<label kind="synchronisation" x="17" y="-476">safeDistanceReachedSig!</label>
+			<label kind="assignment" x="34" y="-459">safe_distance = true</label>
+		</transition>
+		<transition id="id99">
+			<source ref="id87"/>
+			<target ref="id88"/>
+			<label kind="synchronisation" x="-424" y="-488">increaseDistance?</label>
+			<label kind="assignment" x="-424" y="-471">z = 0</label>
+		</transition>
+		<transition id="id100">
+			<source ref="id86"/>
+			<target ref="id87"/>
+			<label kind="synchronisation" x="-696" y="-493">enterReconfiguration?</label>
+		</transition>
+		<transition id="id101">
+			<source ref="id85"/>
+			<target ref="id86"/>
+			<label kind="synchronisation" x="-959" y="-501">ack!</label>
+		</transition>
+		<transition id="id102">
+			<source ref="id84"/>
+			<target ref="id85"/>
+			<label kind="synchronisation" x="-1265" y="-514">cutInAlert?</label>
+		</transition>
+	</template>
+	<template>
+		<name>CommunicationMonitor</name>
+		<location id="id103" x="-1088" y="-408">
+			<name x="-1098" y="-442">Monitoring</name>
+		</location>
+		<location id="id104" x="-688" y="-391">
+			<name x="-698" y="-425">FailureDetected</name>
+		</location>
+		<location id="id105" x="-331" y="-382">
+			<name x="-341" y="-416">FallbackBroadcasted</name>
+		</location>
+		<init ref="id103"/>
+		<transition id="id106">
+			<source ref="id104"/>
+			<target ref="id105"/>
+			<label kind="synchronisation" x="-670" y="-403">safeFallback!</label>
+			<label kind="assignment" x="-670" y="-386">fallback_mode = true</label>
+		</transition>
+		<transition id="id107">
+			<source ref="id103"/>
+			<target ref="id104"/>
+			<label kind="synchronisation" x="-1070" y="-416">communicationTimeout?</label>
+			<label kind="assignment" x="-1070" y="-399">communication_ok = false</label>
+		</transition>
+	</template>
+	<template>
+		<name x="5" y="5">Platooning</name>
+		<declaration>// Place local declarations here.
+</declaration>
+		<location id="id108" x="-595" y="17">
+			<name x="-605" y="-17">Idle</name>
+		</location>
+		<location id="id109" x="-374" y="17">
+			<name x="-450" y="59">Sending_Join_Request</name>
+			<label kind="invariant" x="-384" y="34">z&lt;=30</label>
+		</location>
+		<location id="id110" x="-127" y="17">
+			<name x="-137" y="-17">Authenticating</name>
+			<label kind="invariant" x="-137" y="34">x&lt;=2</label>
+		</location>
+		<location id="id111" x="170" y="17">
+			<name x="144" y="-42">Assigning_Positions</name>
+			<label kind="invariant" x="160" y="34">y&lt;=5</label>
+		</location>
+		<location id="id112" x="484" y="17">
+			<name x="474" y="-17">CACC_Active</name>
+			<label kind="invariant" x="474" y="34">z&lt;=30</label>
+		</location>
+		<init ref="id108"/>
+		<transition id="id113">
+			<source ref="id111"/>
+			<target ref="id112"/>
+			<label kind="guard" x="297" y="42">all_confirmed</label>
+		</transition>
+		<transition id="id114">
+			<source ref="id110"/>
+			<target ref="id111"/>
+			<label kind="guard" x="-42" y="-51">all_ids_verified</label>
+			<label kind="assignment" x="-109" y="17">y:=0</label>
+		</transition>
+		<transition id="id115">
+			<source ref="id109"/>
+			<target ref="id110"/>
+			<label kind="guard" x="-306" y="-17">v2v_received</label>
+			<label kind="assignment" x="-356" y="17">x:=0</label>
+		</transition>
+		<transition id="id116">
+			<source ref="id108"/>
+			<target ref="id109"/>
+			<label kind="guard" x="-544" y="-17">driver_request</label>
+			<label kind="assignment" x="-517" y="17">z:=0</label>
+		</transition>
+	</template>
+	<system>// Scenario A instances
+LT = LeadTruck();
+TT = TrailingTruck();
+CM = S1CommunicationMonitor();
+// Scenario B instances
+E = Environment();
+D = DetectingTruck();
+C = CommunicationModule();
+L = PlatoonLeader();
+F = FollowerTruck();
+M = CommunicationMonitor();
+
+// Scenario C instance
+P = Platooning();
+
+system LT, TT, CM, E, D, C, L, F, M, P;</system>
+	<queries>
+		<query>
+			<formula>E&lt;&gt; LT.WarningSent</formula>
+			<comment>Scenario A stopped vehicle/debris</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:42:23 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; TT.WarningReceived</formula>
+			<comment>Scenario A stopped vehicle/debris</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:42:25 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; LT.SafeStop and TT.SafeStop</formula>
+			<comment>Scenario A stopped vehicle/debris</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:42:26 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; C.AlertConfirmed</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:42:27 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; F.SafeFollowingMode</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:42:29 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; L.Reforming</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:42:31 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; L.FallbackMode</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:42:32 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; F.FallbackMode</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:42:33 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; M.FallbackBroadcasted</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:22 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not collision</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:24 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] L.Reforming imply not intruder_present</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:26 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] L.FallbackMode imply not platoon_normal</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:27 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] D.Detecting imply D.x &lt;= DETECTION_TIME</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:28 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] C.SendingAlert imply C.y &lt;= NOTIFICATION_TIME</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:29 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] F.IncreasingDistance imply F.z &lt;= DISTANCE_ADJUSTMENT_TIME</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:30 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] L.Reforming imply L.r &lt;= REFORMATION_TIME</formula>
+			<comment>Scenario B cut-in</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:31 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; P.CACC_Active</formula>
+			<comment>Scenario C platoon join</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:21 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (P.Authenticating and x &gt; 2)</formula>
+			<comment>Scenario C platoon join</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:33 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (P.Assigning_Positions and y &gt; 5)</formula>
+			<comment>Scenario C platoon join</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:19 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not (P.CACC_Active and z &gt; 30)</formula>
+			<comment>Scenario C platoon join</comment>
+			<result outcome="success" type="quality" timestamp="2026-06-25 19:46:34 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; TT.SafeStop</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:29:19 +0200">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; TT.SensorBasedBraking</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2026-06-18 22:29:28 +0200">
+			</result>
+		</query>
+	</queries>
+</nta>
